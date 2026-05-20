@@ -6,6 +6,12 @@
 <title>מגן הפוקוס — ניהול זמן</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1A1714">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="מגן הפוקוס">
+<link rel="apple-touch-icon" href="./icon-192.png">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -649,31 +655,58 @@ function getCheckStates() {
   return s;
 }
 
-// ─── Notifications ─────────────────────────────────────────────
-let notifPermission = 'default';
-async function requestNotifPermission() {
-  if (!('Notification' in window)) return;
-  notifPermission = await Notification.requestPermission();
-  updateNotifBtn();
+// ─── Service Worker + Notifications ────────────────────────────
+let swReg = null;
+
+async function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    swReg = await navigator.serviceWorker.register('./sw.js');
+    console.log('SW registered');
+  } catch(e) { console.warn('SW failed:', e); }
 }
+
+async function requestNotifPermission() {
+  if (!('Notification' in window)) { alert('הדפדפן שלך לא תומך בהתראות'); return; }
+  const perm = await Notification.requestPermission();
+  notifPermission = perm;
+  updateNotifBtn();
+  if (perm === 'granted') {
+    // Test notification
+    if (swReg) swReg.showNotification('🛡 מגן הפוקוס', { body: 'התראות מופעלות! נתראה בסיום הבלוק.' });
+  }
+}
+
 function updateNotifBtn() {
   const btn = document.getElementById('notif-btn');
   if (!btn) return;
   if (!('Notification' in window)) { btn.style.display='none'; return; }
-  const perm = Notification.permission;
-  if (perm === 'granted') {
-    btn.textContent = '🔔 התראות פעילות';
+  if (Notification.permission === 'granted') {
+    btn.textContent = '🔔 התראות פעילות ✓';
     btn.style.opacity = '0.5';
     btn.style.cursor = 'default';
+    btn.onclick = null;
   } else {
     btn.textContent = '🔔 אפשר התראות';
     btn.style.opacity = '1';
     btn.style.cursor = 'pointer';
+    btn.onclick = requestNotifPermission;
   }
 }
-function sendNotification(title, body) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  new Notification(title, { body, icon: '' });
+
+// שלח הוראה ל-SW לתזמן התראה
+function scheduleNotification(delayMs, title, body) {
+  if (Notification.permission !== 'granted') return;
+  if (swReg && swReg.active) {
+    swReg.active.postMessage({ type: 'SCHEDULE_NOTIFICATION', payload: { delayMs, title, body } });
+  }
+}
+
+// בטל תזמון קיים
+function cancelScheduledNotification() {
+  if (swReg && swReg.active) {
+    swReg.active.postMessage({ type: 'CANCEL_NOTIFICATION' });
+  }
 }
 
 // ─── Timer state ───────────────────────────────────────────────
@@ -708,7 +741,6 @@ function onSegmentEnd() {
   if (!isBreak) {
     blocksDone++; focusMins += workDur;
     updateStats();
-    sendNotification('🎉 בלוק פוקוס הסתיים!', 'כל הכבוד! הגיע זמן הפסקה קצרה.');
     isBreak = true;
     totalSecs = breakDur * 60; remaining = totalSecs;
     document.getElementById('timer-phase').textContent = '☕ הפסקה — קום מהכיסא';
@@ -716,7 +748,6 @@ function onSegmentEnd() {
     document.getElementById('progress-fill').classList.add('break-mode');
     document.getElementById('tip-box').textContent = TIPS[blocksDone % TIPS.length];
   } else {
-    sendNotification('⏱ הפסקה הסתיימה!', 'מוכן לבלוק הבא? בוא נתחיל!');
     isBreak = false;
     totalSecs = workDur * 60; remaining = totalSecs;
     document.getElementById('timer-phase').textContent = 'בלוק פוקוס — כבה התראות';
@@ -731,7 +762,6 @@ function onSegmentEnd() {
 function startCountdown() {
   if (interval) clearInterval(interval);
   interval = setInterval(() => {
-    // Use wall-clock diff so pausing the tab doesn't drift the timer
     if (timerEndTime) {
       remaining = Math.max(0, Math.round((timerEndTime - Date.now()) / 1000));
     } else {
@@ -744,16 +774,20 @@ function startCountdown() {
 
 function toggleTimer() {
   if (running) {
-    // Pause
     clearInterval(interval); interval = null;
     running = false; timerEndTime = null;
     document.getElementById('start-btn').textContent = 'המשך';
+    cancelScheduledNotification();
     saveState();
   } else {
-    // Start / resume
     running = true;
     timerEndTime = Date.now() + remaining * 1000;
     document.getElementById('start-btn').textContent = 'השהה';
+    scheduleNotification(
+      remaining * 1000,
+      isBreak ? '☕ הפסקה הסתיימה!' : '🎉 בלוק פוקוס הסתיים!',
+      isBreak ? 'מוכן לבלוק הבא? בוא נתחיל!' : 'כל הכבוד! הגיע זמן הפסקה קצרה.'
+    );
     startCountdown();
     saveState();
   }
@@ -763,6 +797,7 @@ function resetTimer() {
   clearInterval(interval); interval = null;
   running = false; isBreak = false; timerEndTime = null;
   totalSecs = workDur * 60; remaining = totalSecs;
+  cancelScheduledNotification();
   document.getElementById('start-btn').textContent = 'התחל';
   document.getElementById('timer-phase').textContent = 'בלוק פוקוס — כבה התראות';
   document.getElementById('timer-digits').classList.remove('break-mode');
@@ -861,6 +896,7 @@ function switchTab(name, btn) {
 
 // ─── Init ──────────────────────────────────────────────────────
 function init() {
+  registerSW();
   updateNotifBtn();
 
   const saved = loadState();
