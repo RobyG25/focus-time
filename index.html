@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מגן הפוקוס — ניהול זמן</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F5F2EC;
+    --surface: #FDFBF7;
+    --surface2: #EDE9E0;
+    --text: #1A1714;
+    --text-muted: #7A7268;
+    --accent: #C8481A;
+    --accent2: #1A6BC8;
+    --accent3: #2A8A5A;
+    --border: rgba(26,23,20,0.12);
+    --border-strong: rgba(26,23,20,0.25);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 2px 12px rgba(26,23,20,0.08);
+    --shadow-lg: 0 8px 32px rgba(26,23,20,0.14);
+    --font: 'Heebo', sans-serif;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    direction: rtl;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--text);
+    color: var(--bg);
+    padding: 0 2rem;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; display: inline-block; }
+  .header-stat {
+    font-size: 13px;
+    color: rgba(245,242,236,0.6);
+    display: flex;
+    gap: 20px;
+  }
+  .header-stat span { color: var(--bg); font-weight: 500; }
+
+  /* NAV TABS */
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    gap: 4px;
+  }
+  .nav-tab {
+    padding: 14px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-family: var(--font);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .nav-icon { font-size: 16px; }
+
+  /* MAIN */
+  main { flex: 1; padding: 2rem; max-width: 960px; width: 100%; margin: 0 auto; }
+
+  /* PANELS */
+  .panel { display: none; animation: fadeIn 0.2s ease; }
+  .panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+  }
+  .card + .card { margin-top: 1rem; }
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+  }
+  .card-title-icon { font-size: 18px; }
+
+  /* GRID */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+  @media (max-width: 600px) { .grid2 { grid-template-columns: 1fr; } }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  @media (max-width: 600px) { .grid3 { grid-template-columns: 1fr; } }
+
+  /* TIMER */
+  .timer-hero {
+    text-align: center;
+    padding: 2rem 1rem;
+  }
+  .timer-phase {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .timer-digits {
+    font-size: 80px;
+    font-weight: 300;
+    letter-spacing: -3px;
+    line-height: 1;
+    margin-bottom: 1.5rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  .timer-digits.break-mode { color: var(--accent3); }
+  .progress-track {
+    height: 3px;
+    background: var(--surface2);
+    border-radius: 2px;
+    margin: 0 auto 1.5rem;
+    max-width: 360px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 1s linear;
+  }
+  .progress-fill.break-mode { background: var(--accent3); }
+  .mode-selector {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .mode-pill {
+    padding: 6px 16px;
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    background: none;
+    font-family: var(--font);
+    color: var(--text-muted);
+    transition: all 0.2s;
+  }
+  .mode-pill:hover { background: var(--surface2); }
+  .mode-pill.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .timer-btns { display: flex; gap: 10px; justify-content: center; }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 12px 36px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-secondary {
+    background: none;
+    color: var(--text-muted);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 12px 24px;
+    font-size: 15px;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-secondary:hover { background: var(--surface2); color: var(--text); }
+
+  /* STATS */
+  .stat-card {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    text-align: center;
+  }
+  .stat-num { font-size: 28px; font-weight: 700; color: var(--text); }
+  .stat-lbl { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
+  /* TIP BOX */
+  .tip-box {
+    background: var(--surface);
+    border-right: 3px solid var(--accent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding: 0.75rem 1rem;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+
+  /* INTERRUPTION LOG */
+  .interrupt-form {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .form-select, .form-input {
+    font-family: var(--font);
+    font-size: 14px;
+    padding: 9px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    direction: rtl;
+    outline: none;
+    transition: border 0.15s;
+  }
+  .form-select:focus, .form-input:focus { border-color: var(--accent); }
+  .form-select { min-width: 160px; }
+  .form-input { flex: 1; min-width: 160px; }
+  .log-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+  .log-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
+  .log-emoji { font-size: 18px; flex-shrink: 0; }
+  .log-note { flex: 1; color: var(--text); }
+  .log-time { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+  .empty-state { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 14px; }
+
+  /* PATTERN */
+  .pattern-bar { margin: 6px 0; }
+  .pattern-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .pattern-label .count { color: var(--text-muted); }
+  .bar-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.4s ease; }
+
+  /* STRATEGIES */
+  .strategy-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    margin-bottom: 1rem;
+  }
+  .strategy-header {
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .strategy-header:hover { background: var(--surface2); }
+  .strategy-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .icon-amber { background: #FFF3E0; }
+  .icon-blue { background: #E3F2FD; }
+  .icon-green { background: #E8F5E9; }
+  .strategy-title { font-size: 15px; font-weight: 700; flex: 1; }
+  .strategy-badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .badge-amber { background: #FFF3E0; color: #E65100; }
+  .badge-blue { background: #E3F2FD; color: #0D47A1; }
+  .badge-green { background: #E8F5E9; color: #1B5E20; }
+  .chevron { margin-right: auto; font-size: 14px; color: var(--text-muted); transition: transform 0.2s; }
+  .strategy-body { padding: 0 1.25rem 1.25rem; display: none; }
+  .strategy-body.open { display: block; }
+  .strategy-tip {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text);
+    display: flex;
+    gap: 10px;
+  }
+  .strategy-tip:last-child { border-bottom: none; }
+  .strategy-tip-bullet { color: var(--accent); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 1rem;
+    padding: 9px 18px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: var(--font);
+    font-weight: 500;
+    cursor: pointer;
+    background: none;
+    color: var(--text);
+    transition: all 0.15s;
+  }
+  .action-btn:hover { background: var(--surface2); }
+
+  /* CHECKLIST */
+  .check-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 1.5rem 0 0.75rem;
+  }
+  .check-section-label:first-child { margin-top: 0; }
+  .check-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    transition: opacity 0.2s;
+  }
+  .check-item:last-child { border-bottom: none; }
+  .check-item input[type=checkbox] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .check-label { font-size: 14px; line-height: 1.6; cursor: pointer; }
+  .check-label.done { text-decoration: line-through; color: var(--text-muted); }
+  .reset-row { margin-top: 1.5rem; display: flex; align-items: center; gap: 12px; }
+  .progress-summary { font-size: 13px; color: var(--text-muted); }
+  .progress-summary strong { color: var(--text); }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 12px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    margin-top: 2rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-dot"></span>
+    מגן הפוקוס
+  </div>
+  <div class="header-stat">
+    <div>בלוקים: <span id="hdr-blocks">0</span></div>
+    <div>דקות פוקוס: <span id="hdr-mins">0</span></div>
+    <div>הפרעות: <span id="hdr-ints">0</span></div>
+  </div>
+</header>
+
+<nav>
+  <button class="nav-tab active" onclick="switchTab('timer', this)">
+    <span class="nav-icon">⏱</span> טיימר פוקוס
+  </button>
+  <button class="nav-tab" onclick="switchTab('interrupts', this)">
+    <span class="nav-icon">🔔</span> יומן הפרעות
+  </button>
+  <button class="nav-tab" onclick="switchTab('strategies', this)">
+    <span class="nav-icon">🛡</span> ספר הטקטיקות
+  </button>
+  <button class="nav-tab" onclick="switchTab('checklist', this)">
+    <span class="nav-icon">✅</span> רשימת יום
+  </button>
+</nav>
+
+<main>
+
+  <!-- TIMER PANEL -->
+  <div id="panel-timer" class="panel active">
+    <div class="card">
+      <div class="mode-selector">
+        <button class="mode-pill active" onclick="setMode(this,25,5)">פומודורו 25/5</button>
+        <button class="mode-pill" onclick="setMode(this,50,10)">עבודה עמוקה 50/10</button>
+        <button class="mode-pill" onclick="setMode(this,90,20)">זרימה 90/20</button>
+      </div>
+      <div class="timer-hero">
+        <div class="timer-phase" id="timer-phase">בלוק פוקוס — כבה התראות</div>
+        <div class="timer-digits" id="timer-digits">25:00</div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill" style="width:100%"></div>
+        </div>
+        <div class="timer-btns">
+          <button class="btn-primary" id="start-btn" onclick="toggleTimer()">התחל</button>
+          <button class="btn-secondary" onclick="resetTimer()">אפס</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:1rem">
+      <div class="card">
+        <div class="card-title"><span class="card-title-icon">📊</span> סיכום יומי</div>
+        <div class="grid3">
+          <div class="stat-card"><div class="stat-num" id="s-blocks">0</div><div class="stat-lbl">בלוקים</div></div>
+          <div class="stat-card"><div class="stat-num" id="s-mins">0</div><div class="stat-lbl">דקות</div></div>
+          <div class="stat-card"><div class="stat-num" id="s-ints">0</div><div class="stat-lbl">הפרעות</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="card-title-icon">💡</span> טיפ</div>
+        <div class="tip-box" id="tip-box">
+          לבש אוזניות (גם בלי מוזיקה) — זה הסימן המשרדי האוניברסלי: "אני בפוקוס עמוק."
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTERRUPTS PANEL -->
+  <div id="panel-interrupts" class="panel">
+    <div class="card">
+      <div class="card-title"><span class="card-title-icon">➕</span> תעד הפרעה</div>
+      <div class="interrupt-form">
+        <select class="form-select" id="int-type">
+          <option value="👤 עמית שהגיע">👤 עמית שהגיע</option>
+          <option value="📱 טלפון / הודעה">📱 טלפון / הודעה</option>
+          <option value="📧 פיתוי לאימייל">📧 פיתוי לאימייל</option>
+          <option value="🔔 פינג פגישה">🔔 פינג פגישה</option>
+          <option value="💭 הסחת דעת עצמית">💭 הסחת דעת עצמית</option>
+        </select>
+        <input class="form-input" id="int-note" type="text" placeholder="הערה קצרה (אופציונלי)" />
+        <button class="btn-primary" onclick="logInterrupt()" style="padding:9px 20px;font-size:14px">תעד</button>
+      </div>
+      <div class="log-list" id="log-list">
+        <div class="empty-state">אין הפרעות מתועדות עדיין — כל כך טוב! 🎯</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1rem">
+      <div class="card-title"><span class="card-title-icon">📈</span> דפוס ההפרעות שלך</div>
+      <div id="pattern-area">
+        <div style="color:var(--text-muted);font-size:14px">תעד כמה הפרעות כדי לראות את הדפוס שלך.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STRATEGIES PANEL -->
+  <div id="panel-strategies" class="panel">
+
+    <div class="strategy-card">
+      <div class="strategy-header" onclick="toggleStrategy(this)">
+        <div class="strategy-icon icon-amber">🎧</div>
+        <div class="strategy-title">מגנים סביבתיים</div>
+        <span class="strategy-badge badge-amber">הגדרה</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="strategy-body open">
+        <div class="strategy-tip">
+          <span class="strategy-tip-bullet">•</span>
+          <div><strong>אות האוזניות.</strong> אוזניות על שני האוזניים = עסוק. אוזנייה אחת = אפשר להפריע. בלי כלום = פנוי לשיחה. תסכמו על זה עם הצוות שלך.</div>
+        </div>
+        <div class="strategy-tip">
+          <span class="strategy-tip-bullet">•</span>
+          <div><strong>מיקום המסך.</strong> סובב את המסך כך שעוברי אורח לא יראו אותו — כמו "דלת סגורה" וירטואלית.</div>
+        </div>
+        <div class="strategy-tip">
+          <span class="strategy-tip-bullet">•</span>
+          <div><strong>שלט שולחני.</strong> שלט קטן "פוקוס עמוק עד 11:00" קובע ציפיות בלי עימות.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="strategy-card">
+      <div class="strategy-header" onclick="toggleStrategy(this)">
+        <div class="strategy-icon icon-blue">💬</div>
+        <div class="strategy-title">מגנים תקשורתיים</div>
+        <span class="strategy-badge badge-blue">חברתי</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="strategy-body">
+        <div class="strategy-tip">
+          <span class="strategy-tip-bullet">•</span>
+          <div><strong>שעות פתוחות.</strong> חסום 2-3 "חלונות פתוחים" ביום (למשל 10:00-10:30, 14:00-14:30). כוון עמיתים לשם: "נוכל לדבר בסשן של 14:00?"</div>
+        </div>
+        <div class="strategy-tip">
+          <span class="strategy-tip-bullet">•</span>
+          <div><strong>הדחייה החברתית.</strong> "שאלה מצוינת — אני באמצע מחשבה, אני יכול להגיע אליך בעוד 20 דקות?" כמעט אף אחד לא מסרב לזה.</div>
+        </div>
+        <div class="strategy-tip">
+          <span class="strategy-tip-bullet">•</span>
+          <div><strong>קבוצת תקשורת.</strong> בדוק אימייל/סלאק בשעות קבועות (9:00, 12:00, 16:00). סגור טאבים בינתיים.</div>
+        </div>
+        <button class="action-btn" onclick="alert('טיפ: שלח לצוות שלך הודעה שמסבירה את שעות הפוקוס שלך ואיך הם יכולים להגיע אליך!')">✍️ טיוטת הודעה לצוות</button>
+      </div>
+    </div>
+
+    <div class="strategy-card">
+      <div class="strategy-header" onclick="toggleStrategy(this)">
+        <div class="strategy-icon icon-green">📅</div>
+        <div class="strategy-title">מגנים ביומן</div>
+        <span class="strategy-badge badge-green">לוח זמנים</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="strategy-body">
+        <div class="strategy-tip">
+          <span class="strategy-tip-bullet">•</span>
+          <div><strong>חסום את שעות הפסגה.</strong> רוב האנשים מרוכזים ביותר בין 9-11. חסום זמן זה כ"פוקוס" חוזר ביומן — כך אחרים לא יקבעו ישיבות.</div>
+        </div>
+        <div class="strategy-tip">
+          <span class="strategy-tip-bullet">•</span>
+          <div><strong>קיבוץ ישיבות.</strong> רכז ישיבות ביחד (למשל שלישי/חמישי אחה"צ) כדי ליצור בקרים שלמים ללא הפרעות.</div>
+        </div>
+        <div class="strategy-tip">
+          <span class="strategy-tip-bullet">•</span>
+          <div><strong>חסימות חיץ.</strong> הוסף 15 דקות חיץ אחרי כל ישיבה לסיכום ואיפוס מנטלי לפני עבודה עמוקה.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CHECKLIST PANEL -->
+  <div id="panel-checklist" class="panel">
+    <div class="card">
+      <div class="check-section-label">☀️ הכנת בוקר (15 דקות ראשונות)</div>
+      <div id="morning-checks"></div>
+
+      <div class="check-section-label" style="margin-top:1.5rem">🌙 סיום יום (10 דקות אחרונות)</div>
+      <div id="evening-checks"></div>
+
+      <div class="reset-row">
+        <button class="btn-secondary" onclick="resetChecklist()">🔄 אפס רשימה</button>
+        <div class="progress-summary" id="check-progress">0 מתוך 10 הושלמו</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>מגן הפוקוס — כלי ניהול זמן לאנשי משרד</footer>
+
+<script>
+const TIPS = [
+  "לבש אוזניות (גם בלי מוזיקה) — זה הסימן המשרדי האוניברסלי: 'אני בפוקוס עמוק.'",
+  "סגור את טאב האימייל בזמן בלוק פוקוס. אימייל ממוצע לא צריך תגובה תוך שעתיים.",
+  "ספר לעמית על חלון הפוקוס שלך לפני שמתחיל. אחריות חברתית מפחיתה הפרעות.",
+  "שמור מחברת ליד. רשום מחשבות חולפות כדי שהמוח שלך לא יחזור אליהן.",
+  "אחרי הפסקה — חזור לאותה משימה. אל תתחיל כלום חדש לפני שסיימת.",
+  "הגדר את הטלפון ל'אל תפריע' לפחות בזמן בלוקי הפוקוס שלך.",
+];
+const MORNING_ITEMS = [
+  "רשום את 3 המשימות המרכזיות שלך לפני פתיחת אימייל",
+  "חסום את זמן הפוקוס שלך ביומן (סמן כ'עסוק')",
+  "הפעל 'אל תפריע' או השתק התראות לא דחופות",
+  "לבש אוזניות או הכן את אות השולחן שלך",
+  "סגור כל טאבי דפדפן שלא נחוצים למשימה הראשונה",
+];
+const EVENING_ITEMS = [
+  "רשום משימות שלא הסתיימו והעבר אותן למחר",
+  "זהה את 3 המשימות שלך למחר",
+  "נקה תיבת דואר נכנס (או סמן ארכב)",
+  "רשום כמה בלוקי פוקוס השלמת היום",
+  "מהו סוג ההפרעה הגדול ביותר? אפשר למנוע אותו מחר?",
+];
+
+const LS_KEY = 'mgenfocus_v1';
+const TODAY = new Date().toISOString().slice(0,10);
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+function saveState() {
+  try {
+    const state = {
+      date: TODAY,
+      blocksDone, focusMins,
+      interrupts,
+      checks: getCheckStates(),
+      workDur, breakDur
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  } catch(e) {}
+}
+
+function getCheckStates() {
+  const states = {};
+  document.querySelectorAll('#panel-checklist input[type=checkbox]').forEach(cb => {
+    states[cb.id] = cb.checked;
+  });
+  return states;
+}
+
+let workDur = 25, breakDur = 5;
+let totalSecs = 25 * 60, remaining = totalSecs;
+let running = false, isBreak = false;
+let interval = null;
+let blocksDone = 0, focusMins = 0;
+let interrupts = [];
+
+function pad(n) { return String(n).padStart(2,'0'); }
+
+function updateDisplay() {
+  const m = Math.floor(remaining/60), s = remaining%60;
+  document.getElementById('timer-digits').textContent = pad(m)+':'+pad(s);
+  const pct = Math.round(remaining/totalSecs*100);
+  document.getElementById('progress-fill').style.width = pct+'%';
+}
+
+function setMode(btn, w, b) {
+  document.querySelectorAll('.mode-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  workDur = w; breakDur = b;
+  resetTimer();
+  saveState();
+}
+
+function toggleTimer() {
+  if (running) {
+    clearInterval(interval); running = false;
+    document.getElementById('start-btn').textContent = 'המשך';
+  } else {
+    running = true;
+    document.getElementById('start-btn').textContent = 'השהה';
+    interval = setInterval(() => {
+      remaining--;
+      updateDisplay();
+      if (remaining <= 0) {
+        clearInterval(interval); running = false;
+        if (!isBreak) {
+          blocksDone++; focusMins += workDur;
+          updateStats();
+          saveState();
+          isBreak = true;
+          totalSecs = breakDur * 60; remaining = totalSecs;
+          document.getElementById('timer-phase').textContent = '☕ הפסקה — קום מהכיסא';
+          document.getElementById('timer-digits').classList.add('break-mode');
+          document.getElementById('progress-fill').classList.add('break-mode');
+          document.getElementById('tip-box').textContent = TIPS[blocksDone % TIPS.length];
+        } else {
+          isBreak = false;
+          totalSecs = workDur * 60; remaining = totalSecs;
+          document.getElementById('timer-phase').textContent = 'בלוק פוקוס — כבה התראות';
+          document.getElementById('timer-digits').classList.remove('break-mode');
+          document.getElementById('progress-fill').classList.remove('break-mode');
+        }
+        document.getElementById('start-btn').textContent = 'התחל';
+        updateDisplay();
+      }
+    }, 1000);
+  }
+}
+
+function resetTimer() {
+  clearInterval(interval); running = false; isBreak = false;
+  totalSecs = workDur * 60; remaining = totalSecs;
+  document.getElementById('start-btn').textContent = 'התחל';
+  document.getElementById('timer-phase').textContent = 'בלוק פוקוס — כבה התראות';
+  document.getElementById('timer-digits').classList.remove('break-mode');
+  document.getElementById('progress-fill').classList.remove('break-mode');
+  updateDisplay();
+}
+
+function updateStats() {
+  document.getElementById('s-blocks').textContent = blocksDone;
+  document.getElementById('s-mins').textContent = focusMins;
+  document.getElementById('s-ints').textContent = interrupts.length;
+  document.getElementById('hdr-blocks').textContent = blocksDone;
+  document.getElementById('hdr-mins').textContent = focusMins;
+  document.getElementById('hdr-ints').textContent = interrupts.length;
+}
+
+function logInterrupt() {
+  const type = document.getElementById('int-type').value;
+  const note = document.getElementById('int-note').value.trim();
+  const now = new Date();
+  const time = pad(now.getHours())+':'+pad(now.getMinutes());
+  interrupts.push({type, note, time});
+  document.getElementById('int-note').value = '';
+  renderLog();
+  renderPattern();
+  updateStats();
+  saveState();
+}
+
+function renderLog() {
+  const el = document.getElementById('log-list');
+  if (!interrupts.length) { el.innerHTML = '<div class="empty-state">אין הפרעות מתועדות עדיין — כל כך טוב! 🎯</div>'; return; }
+  el.innerHTML = interrupts.slice().reverse().map(i =>
+    `<div class="log-item"><span class="log-emoji">${i.type.split(' ')[0]}</span><span class="log-note">${i.type.substring(2)}${i.note?' — '+i.note:''}</span><span class="log-time">${i.time}</span></div>`
+  ).join('');
+}
+
+function renderPattern() {
+  const el = document.getElementById('pattern-area');
+  if (!interrupts.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:14px">תעד כמה הפרעות כדי לראות את הדפוס שלך.</div>'; return; }
+  const counts = {};
+  interrupts.forEach(i => { const k = i.type; counts[k] = (counts[k]||0)+1; });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const max = sorted[0][1];
+  el.innerHTML = sorted.map(([k,v]) =>
+    `<div class="pattern-bar">
+      <div class="pattern-label"><span>${k}</span><span class="count">${v}×</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/max*100)}%"></div></div>
+    </div>`
+  ).join('');
+}
+
+function toggleStrategy(header) {
+  const body = header.nextElementSibling;
+  const chevron = header.querySelector('.chevron');
+  const open = body.classList.toggle('open');
+  chevron.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+function buildChecklists(savedChecks) {
+  function makeItems(items, container, prefix) {
+    const el = document.getElementById(container);
+    el.innerHTML = items.map((txt, i) => {
+      const id = prefix+i;
+      const checked = savedChecks && savedChecks[id] ? 'checked' : '';
+      return `<div class="check-item">
+        <input type="checkbox" id="${id}" ${checked} onchange="toggleCheck('${id}')">
+        <label class="check-label${checked?' done':''}" id="lbl-${id}" for="${id}">${txt}</label>
+      </div>`;
+    }).join('');
+  }
+  makeItems(MORNING_ITEMS, 'morning-checks', 'm');
+  makeItems(EVENING_ITEMS, 'evening-checks', 'e');
+}
+
+function toggleCheck(id) {
+  const cb = document.getElementById(id);
+  const lbl = document.getElementById('lbl-'+id);
+  if (cb.checked) lbl.classList.add('done'); else lbl.classList.remove('done');
+  updateCheckProgress();
+  saveState();
+}
+
+function updateCheckProgress() {
+  const total = MORNING_ITEMS.length + EVENING_ITEMS.length;
+  const done = document.querySelectorAll('#panel-checklist input[type=checkbox]:checked').length;
+  document.getElementById('check-progress').innerHTML = `<strong>${done}</strong> מתוך ${total} הושלמו`;
+}
+
+function resetChecklist() {
+  document.querySelectorAll('#panel-checklist input[type=checkbox]').forEach(cb => cb.checked = false);
+  document.querySelectorAll('#panel-checklist .check-label').forEach(l => l.classList.remove('done'));
+  updateCheckProgress();
+  saveState();
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
+}
+
+function init() {
+  const saved = loadState();
+  if (saved && saved.date === TODAY) {
+    blocksDone = saved.blocksDone || 0;
+    focusMins = saved.focusMins || 0;
+    interrupts = saved.interrupts || [];
+    workDur = saved.workDur || 25;
+    breakDur = saved.breakDur || 5;
+    buildChecklists(saved.checks || {});
+    renderLog();
+    renderPattern();
+    updateStats();
+  } else {
+    buildChecklists({});
+  }
+  totalSecs = workDur * 60;
+  remaining = totalSecs;
+  updateDisplay();
+  updateCheckProgress();
+}
+
+init();
+</script>
+</body>
+</html>
