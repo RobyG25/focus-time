@@ -519,6 +519,25 @@
         </div>
       </div>
     </div>
+
+    <!-- מפת היום -->
+    <div class="card" id="daymap-card" style="margin-top:1rem">
+      <div class="card-title" style="justify-content:space-between">
+        <span><span class="card-title-icon">📍</span> מפת היום שלי</span>
+        <button onclick="toggleDayMap()" id="daymap-toggle-btn" style="font-size:12px;padding:4px 12px;border:1px solid var(--border-strong);border-radius:20px;background:none;color:var(--text-muted);cursor:pointer;font-family:var(--font)">הסתר</button>
+      </div>
+      <div id="daymap-body">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;display:flex;gap:16px;flex-wrap:wrap">
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent);margin-left:5px"></span>פוקוס</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--accent3);margin-left:5px"></span>הפסקה</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#E0A030;margin-left:5px"></span>הפרעה</span>
+        </div>
+        <div id="daymap-timeline" style="display:flex;align-items:center;gap:3px;flex-wrap:wrap;min-height:36px">
+          <div style="color:var(--text-muted);font-size:13px">עוד אין נתונים — התחל בלוק פוקוס ראשון!</div>
+        </div>
+        <div id="daymap-summary" style="margin-top:10px;font-size:13px;color:var(--text-muted)"></div>
+      </div>
+    </div>
   </div>
 
   <!-- INTERRUPTS PANEL -->
@@ -694,7 +713,92 @@ function getCheckStates() {
   return s;
 }
 
-// ─── Rotating tip ──────────────────────────────────────────────
+// ─── Day Map ───────────────────────────────────────────────────
+let dayEvents = []; // { type: 'focus'|'break'|'interrupt', start, end, label }
+let currentBlockStart = null;
+let daymapVisible = true;
+
+function recordBlockStart(type) {
+  currentBlockStart = { type, time: Date.now() };
+}
+
+function recordBlockEnd(type, label) {
+  if (!currentBlockStart) return;
+  dayEvents.push({
+    type,
+    start: currentBlockStart.time,
+    end: Date.now(),
+    label: label || ''
+  });
+  currentBlockStart = null;
+  renderDayMap();
+  saveDayEvents();
+}
+
+function recordInterruptEvent(label) {
+  const now = Date.now();
+  dayEvents.push({ type: 'interrupt', start: now, end: now + 60000, label });
+  renderDayMap();
+  saveDayEvents();
+}
+
+function saveDayEvents() {
+  try { localStorage.setItem('mgenfocus_dayevents_' + TODAY, JSON.stringify(dayEvents)); } catch(e) {}
+}
+
+function loadDayEvents() {
+  try {
+    const raw = localStorage.getItem('mgenfocus_dayevents_' + TODAY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function toggleDayMap() {
+  daymapVisible = !daymapVisible;
+  document.getElementById('daymap-body').style.display = daymapVisible ? 'block' : 'none';
+  document.getElementById('daymap-toggle-btn').textContent = daymapVisible ? 'הסתר' : 'הצג';
+  try { localStorage.setItem('mgenfocus_daymap_visible', daymapVisible ? '1' : '0'); } catch(e) {}
+}
+
+function renderDayMap() {
+  const el = document.getElementById('daymap-timeline');
+  const summary = document.getElementById('daymap-summary');
+  if (!dayEvents.length) {
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:13px">עוד אין נתונים — התחל בלוק פוקוס ראשון!</div>';
+    summary.textContent = '';
+    return;
+  }
+
+  // חשב טווח כולל
+  const allStart = Math.min(...dayEvents.map(e => e.start));
+  const allEnd   = Math.max(...dayEvents.map(e => e.end));
+  const totalMs  = Math.max(allEnd - allStart, 1);
+
+  const colorMap = { focus: 'var(--accent)', break: 'var(--accent3)', interrupt: '#E0A030' };
+  const labelMap = { focus: 'פוקוס', break: 'הפסקה', interrupt: 'הפרעה' };
+
+  el.innerHTML = dayEvents.map(ev => {
+    const widthPct = Math.max(((ev.end - ev.start) / totalMs) * 100, 1.5);
+    const color = colorMap[ev.type];
+    const tooltip = `${labelMap[ev.type]}${ev.label ? ' — ' + ev.label : ''} (${Math.round((ev.end - ev.start) / 60000)} דק')`;
+    return `<div title="${tooltip}" style="
+      height:32px;
+      width:${widthPct}%;
+      background:${color};
+      border-radius:4px;
+      opacity:0.85;
+      cursor:default;
+      transition:opacity 0.15s;
+      flex-shrink:0;
+    " onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.85'"></div>`;
+  }).join('');
+
+  // סיכום
+  const focusMinsTotal = Math.round(dayEvents.filter(e=>e.type==='focus').reduce((s,e)=>s+(e.end-e.start),0)/60000);
+  const breakMinsTotal = Math.round(dayEvents.filter(e=>e.type==='break').reduce((s,e)=>s+(e.end-e.start),0)/60000);
+  const interruptCount = dayEvents.filter(e=>e.type==='interrupt').length;
+  summary.textContent = `${focusMinsTotal} דק' פוקוס · ${breakMinsTotal} דק' הפסקות · ${interruptCount} הפרעות`;
+}
 let tipIndex = 0;
 let tipInterval = null;
 
@@ -819,6 +923,7 @@ function onSegmentEnd() {
   if (!isBreak) {
     blocksDone++; focusMins += workDur;
     updateStats();
+    recordBlockEnd('focus', `בלוק ${blocksDone}`);
     isBreak = true;
     totalSecs = breakDur * 60; remaining = totalSecs;
     document.getElementById('timer-phase').textContent = '☕ הפסקה — קום מהכיסא';
@@ -826,6 +931,7 @@ function onSegmentEnd() {
     document.getElementById('progress-fill').classList.add('break-mode');
     document.getElementById('tip-box').textContent = TIPS[blocksDone % TIPS.length];
   } else {
+    recordBlockEnd('break', '');
     isBreak = false;
     totalSecs = workDur * 60; remaining = totalSecs;
     document.getElementById('timer-phase').textContent = 'בלוק פוקוס — כבה התראות';
@@ -856,11 +962,15 @@ function toggleTimer() {
     running = false; timerEndTime = null;
     document.getElementById('start-btn').textContent = 'המשך';
     cancelScheduledNotification();
+    // תעד סיום מוקדם של הבלוק
+    if (currentBlockStart) recordBlockEnd(currentBlockStart.type, 'הושהה');
     saveState();
   } else {
     running = true;
     timerEndTime = Date.now() + remaining * 1000;
     document.getElementById('start-btn').textContent = 'השהה';
+    // תעד התחלת בלוק
+    recordBlockStart(isBreak ? 'break' : 'focus');
     scheduleNotification(
       remaining * 1000,
       isBreak ? '☕ הפסקה הסתיימה!' : '🎉 בלוק פוקוס הסתיים!',
@@ -901,6 +1011,7 @@ function logInterrupt() {
   const now = new Date();
   interrupts.push({type, note, time: pad(now.getHours())+':'+pad(now.getMinutes())});
   document.getElementById('int-note').value = '';
+  recordInterruptEvent(type);
   renderLog(); renderPattern(); updateStats(); saveState();
 }
 function renderLog() {
@@ -1024,6 +1135,13 @@ function init() {
     totalSecs = workDur * 60;
     remaining = totalSecs;
   }
+
+  dayEvents = loadDayEvents();
+  renderDayMap();
+  try {
+    const vis = localStorage.getItem('mgenfocus_daymap_visible');
+    if (vis === '0') { daymapVisible = false; document.getElementById('daymap-body').style.display = 'none'; document.getElementById('daymap-toggle-btn').textContent = 'הצג'; }
+  } catch(e) {}
 
   updateDisplay();
   updateCheckProgress();
