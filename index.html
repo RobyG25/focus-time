@@ -33,6 +33,43 @@
     --font: 'Heebo', sans-serif;
   }
 
+  [data-theme="dark"] {
+    --bg: #0F0E0D;
+    --surface: #1C1A18;
+    --surface2: #262320;
+    --text: #F0EDE6;
+    --text-muted: #8A8278;
+    --accent: #E0622A;
+    --accent2: #4A9AE0;
+    --accent3: #3AAA6A;
+    --border: rgba(240,237,230,0.10);
+    --border-strong: rgba(240,237,230,0.20);
+    --shadow: 0 2px 12px rgba(0,0,0,0.3);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  [data-theme="dark"] header { background: #0F0E0D; border-bottom: 1px solid var(--border); }
+  [data-theme="dark"] .header-stat { color: rgba(240,237,230,0.45); }
+  [data-theme="dark"] .header-stat span { color: var(--text); }
+  [data-theme="dark"] .form-select, [data-theme="dark"] .form-input { background: var(--surface2); color: var(--text); }
+
+  .theme-toggle {
+    background: none;
+    border: 1px solid rgba(240,237,230,0.25);
+    border-radius: 20px;
+    color: rgba(240,237,230,0.7);
+    font-size: 16px;
+    width: 34px;
+    height: 34px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .theme-toggle:hover { background: rgba(240,237,230,0.1); color: #fff; }
+
   html, body { height: 100%; }
 
   body {
@@ -420,6 +457,7 @@
     <div>דקות פוקוס: <span id="hdr-mins">0</span></div>
     <div>הפרעות: <span id="hdr-ints">0</span></div>
   </div>
+  <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="החלף מצב תצוגה">🌙</button>
 </header>
 
 <nav>
@@ -655,7 +693,46 @@ function getCheckStates() {
   return s;
 }
 
-// ─── Service Worker + Notifications ────────────────────────────
+// ─── Rotating tip ──────────────────────────────────────────────
+let tipIndex = 0;
+let tipInterval = null;
+
+function rotateTip() {
+  const el = document.getElementById('tip-box');
+  if (!el) return;
+  el.style.transition = 'opacity 0.4s';
+  el.style.opacity = '0';
+  setTimeout(() => {
+    tipIndex = (tipIndex + 1) % TIPS.length;
+    el.textContent = TIPS[tipIndex];
+    el.style.opacity = '1';
+  }, 400);
+}
+
+function startTipRotation() {
+  if (tipInterval) clearInterval(tipInterval);
+  tipInterval = setInterval(rotateTip, 8000);
+}
+
+// ─── Dark mode ─────────────────────────────────────────────────
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  applyTheme(next);
+  try { localStorage.setItem('mgenfocus_theme', next); } catch(e) {}
+}
+
+function applyTheme(theme) {
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.getElementById('theme-btn').textContent = '☀️';
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0F0E0D');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    document.getElementById('theme-btn').textContent = '🌙';
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1A1714');
+  }
+}
 let swReg = null;
 
 async function registerSW() {
@@ -896,8 +973,15 @@ function switchTab(name, btn) {
 
 // ─── Init ──────────────────────────────────────────────────────
 function init() {
+  // טען ערכת צבעים שמורה
+  try {
+    const savedTheme = localStorage.getItem('mgenfocus_theme');
+    if (savedTheme) applyTheme(savedTheme);
+  } catch(e) {}
+
   registerSW();
   updateNotifBtn();
+  startTipRotation();
 
   const saved = loadState();
   if (saved && saved.date === TODAY) {
